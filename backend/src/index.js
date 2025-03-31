@@ -2,6 +2,7 @@
 import dotenv from "dotenv"
 
 import connectDB from "./db/index.js"
+import app from "./app.js"
 // function connectDB(){} this is not good way ....better is to use iife and in iife we put semicolon in first just for cleaning purpose
 // ;(async()=>{})()
 
@@ -9,8 +10,16 @@ import connectDB from "./db/index.js"
         path:'./env'
     })
     connectDB()
-
-
+    .then(()=>{
+        app.listen(process.env.PORT,()=>{
+            console.log(`App is listening on port ${process.env.PORT}`)
+           })
+    })
+    .catch((err)=>{
+        console.log("MongoDB connection failed : ",err);
+    })
+  
+   
 
 
 
