@@ -7,7 +7,7 @@ import app from "./app.js"
 // ;(async()=>{})()
 
     dotenv.config({
-        path:'./env'
+        path:'./.env'
     })
     connectDB()
     .then(()=>{
