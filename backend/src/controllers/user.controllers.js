@@ -4,6 +4,7 @@ import {ApiResponse} from "../utils/ApiResponse.js"
 import {User} from "../models/user.model.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import {jwt} from "jsonwebtoken"
+import mongoose from "mongoose";
 
 const generateAccessAndRefreshTokens =  async(userId) => {
     try{
@@ -167,8 +168,11 @@ const loginUser = asyncHandler(async(req,res) =>{
 const logoutUser = asyncHandler( async(req,res) => {
     await User.findByIdAndUpdate(
         req.user._id,{
-            $set:{
-                refreshToken : undefined
+            // $set:{
+            //     refreshToken : undefined
+            // }
+            $unset: {
+                refreshToken: 1 // this removes the field from document
             }
         },
         {
@@ -335,6 +339,128 @@ const refreshAccessToken = asyncHandler( async(req,res) => {
         .json(new ApiResponse(200,user,"CoverImage updated successfully"))
      })
 
+     const getUserChannelProfile = asyncHandler(async (req,res) => {
+        const {username} = req.params
+
+        if(! username?.trim()){
+            throw new ApiError (400,"Username is missing")
+        }
+
+        //User.find({username})//hum aise karke bhi aggregation pipeline laga sakte h aur direct aggregation pipeline bhi
+     
+        const channel = await User.aggregate([
+            {
+                $match : {
+                   username : username.toLowerCase()
+                }
+            },
+            {
+                $lookup : {
+                     from :"subscriptions",
+                     localField : "_id",
+                     foreignField : "channel",
+                     as : "subscribers"
+                }
+            },
+            {
+                $lookup : {
+                     from :"subscriptions",
+                     localField : "_id",
+                     foreignField : "subscriber",
+                     as : "subscribedTo"
+                }
+            },
+            {
+                $addFields : {
+                    subscriberCount : {
+                        $size : "$subscribers"
+                    },
+                    channelsSubscribedToCount : {
+                        $size : "$subscribedTo"
+                    },
+                    isSubscribed : {
+                        $cond : {
+                            if : {$in : [req.user?._id , "$subscribers.subscriber"]},
+                            then: true,
+                            else: false
+                        }
+                    }
+                }
+            },
+            {
+                $project : {
+                    fullname :1,
+                    username :1,
+                    subscriberCount :1,
+                    channelsSubscribedToCount :1,
+                    isSubscribed :1,
+                    avatar :1,
+                    coverImage :1,
+                    email :1
+                }
+            }
+        ]) 
+        if(!channel?.length){
+            throw new ApiError(404,"channel does not exist")
+        }
+        
+        return res
+        .status(200)
+        .json(
+            new ApiResponse(200, channel[0],"user channel fetched successfully")
+        )
+    })
+
+    const getWatchHistory = asyncHandler(async(req,res)=>{
+        //req.user._id // isme hume string milti h mongoose behind the scene usko ObjectId m convert karta h  
+    const user = await User.aggregate([
+        {
+            $match : {
+                //_id : req.user._id // yaha par hum isko aise pass nahi kar sakte kyunki pipeline wali id convet nhi hoti toh hume khud hi isko Objectid m convert karna hoga
+                _id : new mongoose.Types.ObjectId(req.user._id)
+            }
+        },
+        {
+            $lookup :{
+                from : "videos",
+                localField: "watchHistory",
+                foreignField: "_id",
+                as : "watchHistory",
+                pipeline :[
+                    {
+                        $lookup :{
+                            from : "users",
+                            localField : "owner",
+                            foreignField:"_id",
+                            as : "owner",
+                            pipeline :[
+                                {
+                                    $project : {
+                                        fullname :1,
+                                        username :1,
+                                        avatar :1
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        $addFields : {
+                            owner :{
+                                $first : "$owner"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ])
+
+    return res
+    .status(200
+    .json(new ApiResponse(200,user[0].watchHistory,"watch history fetched successfully"))
+    )
+    })
 
 export {
      registerUser,
@@ -345,5 +471,7 @@ export {
     getCurrentUser,
     updateAccountDetail,
     updateUserAvatar,
-    updateUserCoverImage
+    updateUserCoverImage,
+    getUserChannelProfile,
+    getWatchHistory
 }
