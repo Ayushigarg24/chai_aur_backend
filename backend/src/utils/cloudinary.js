@@ -1,5 +1,7 @@
 import {v2 as cloudinary} from "cloudinary"
 import fs from "fs"
+import { asyncHandler } from "./asyncHandler";
+import { ApiError } from "./ApiError";
 
  
 
@@ -29,4 +31,14 @@ import fs from "fs"
            return null;
        }
      }
-export {uploadOnCloudinary}
+
+     const deleteFromCloudinary = async(docId) => {
+           try {
+             await cloudinary.uploader.destroy(docId)
+           } catch (error) {
+             throw new ApiError(404,"file not found")
+           }
+     }
+export {uploadOnCloudinary,
+    deleteFromCloudinary
+}
