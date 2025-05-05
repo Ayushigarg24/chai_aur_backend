@@ -1,7 +1,7 @@
 import {v2 as cloudinary} from "cloudinary"
 import fs from "fs"
-import { asyncHandler } from "./asyncHandler";
-import { ApiError } from "./ApiError";
+import { asyncHandler } from "./asyncHandler.js";
+import { ApiError } from "./ApiError.js";
 
  
 
